@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from data import get_portfolio, get_summary, get_available_dates
-from charts import allocation_pie, gain_loss_bar, gain_pct_bar, invested_vs_gain_scatter
+from charts import treemap, waterfall, gain_pct_horizontal, bubble, gain_loss_bar
 from analysis import analyse_portfolio
 
 st.set_page_config(page_title="eToro Dashboard", layout="wide")
@@ -27,15 +27,22 @@ col3.metric("Overall Return", f"{summary['gain_pct']:.2f}%",
 
 st.divider()
 
-# Charts
+# Row 1 — Treemap + Gain/Loss bar
 col_left, col_right = st.columns(2)
 with col_left:
-    st.plotly_chart(allocation_pie(df), use_container_width=True)
+    st.plotly_chart(treemap(df), use_container_width=True)
 with col_right:
     st.plotly_chart(gain_loss_bar(df), use_container_width=True)
 
-st.plotly_chart(gain_pct_bar(df), use_container_width=True)
-st.plotly_chart(invested_vs_gain_scatter(df), use_container_width=True)
+# Row 2 — Waterfall
+st.plotly_chart(waterfall(df), use_container_width=True)
+
+# Row 3 — Return % horizontal + Bubble
+col_left2, col_right2 = st.columns(2)
+with col_left2:
+    st.plotly_chart(gain_pct_horizontal(df), use_container_width=True)
+with col_right2:
+    st.plotly_chart(bubble(df), use_container_width=True)
 
 st.divider()
 
@@ -54,9 +61,9 @@ st.dataframe(
 
 st.divider()
 
-# Claude analysis
-st.subheader("🤖 Claude Portfolio Analysis")
+# AI analysis
+st.subheader("🤖 AI Portfolio Analysis & Rebalancing")
 if st.button("Analyse my portfolio"):
-    with st.spinner("Asking Claude..."):
+    with st.spinner("Analysing..."):
         analysis = analyse_portfolio(df, summary)
     st.markdown(analysis)
