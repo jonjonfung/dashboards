@@ -1,9 +1,10 @@
-import anthropic
+import os
+import groq
 import pandas as pd
 
 
 def analyse_portfolio(df: pd.DataFrame, summary: dict) -> str:
-    client = anthropic.Anthropic()
+    client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
 
     portfolio_text = df[["name", "total_invested", "total_gain", "gain_pct"]].to_string(index=False)
 
@@ -24,9 +25,9 @@ Please provide:
 
 Keep it concise, direct, and practical. No fluff."""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
+        max_tokens=1024,
     )
-    return message.content[0].text
+    return response.choices[0].message.content

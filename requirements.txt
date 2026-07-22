@@ -3,5 +3,5 @@ plotly
 pandas
 boto3
 awswrangler
-anthropic
+groq
 python-dotenv
