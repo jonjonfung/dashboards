@@ -4,7 +4,7 @@ load_dotenv()
 
 from data import get_portfolio, get_summary, get_available_dates
 from charts import treemap, waterfall, gain_pct_horizontal, bubble, gain_loss_bar
-from analysis import analyse_portfolio
+from analysis import analyse_portfolio, chat
 
 st.set_page_config(page_title="eToro Dashboard", layout="wide")
 st.title("📈 eToro Portfolio Dashboard")
@@ -67,3 +67,27 @@ if st.button("Analyse my portfolio"):
     with st.spinner("Analysing..."):
         analysis = analyse_portfolio(df, summary)
     st.markdown(analysis)
+
+st.divider()
+
+# Chat
+st.subheader("💬 Ask about your portfolio")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+if prompt := st.chat_input("Ask anything about your portfolio..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            reply = chat(st.session_state.messages, df, summary)
+        st.markdown(reply)
+
+    st.session_state.messages.append({"role": "assistant", "content": reply})
