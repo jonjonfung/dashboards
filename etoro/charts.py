@@ -81,6 +81,64 @@ def bubble(df: pd.DataFrame):
     ).update_traces(textposition="top center")
 
 
+def trades_by_fy(df: pd.DataFrame):
+    """Stacked bar — number of buys and sells per Australian FY"""
+    summary = df.groupby(["financial_year", "is_buy"]).size().reset_index(name="count")
+    summary["type"] = summary["is_buy"].map({True: "Buy", False: "Sell"})
+    summary["FY"] = "FY" + summary["financial_year"].astype(int).astype(str)
+    return px.bar(
+        summary,
+        x="FY",
+        y="count",
+        color="type",
+        color_discrete_map={"Buy": "#22c55e", "Sell": "#ef4444"},
+        title="Trades per Financial Year (Buy vs Sell)",
+        labels={"count": "Number of Trades", "FY": "Financial Year"},
+        barmode="group",
+    )
+
+
+def buys_vs_sells_bar(df: pd.DataFrame):
+    """Net profit per FY"""
+    summary = df.groupby("financial_year")["net_profit"].sum().reset_index()
+    summary["FY"] = "FY" + summary["financial_year"].astype(int).astype(str)
+    colors = ["#22c55e" if p >= 0 else "#ef4444" for p in summary["net_profit"]]
+    fig = go.Figure(go.Bar(
+        x=summary["FY"],
+        y=summary["net_profit"],
+        marker_color=colors,
+        text=[f"${p:,.0f}" for p in summary["net_profit"]],
+        textposition="outside",
+    ))
+    fig.update_layout(
+        title="Net Profit per Financial Year",
+        yaxis_title="USD",
+        showlegend=False,
+    )
+    return fig
+
+
+def profit_by_instrument(df: pd.DataFrame):
+    """Horizontal bar — net profit by instrument for selected FY"""
+    summary = df.groupby("name")["net_profit"].sum().reset_index().sort_values("net_profit")
+    colors = ["#ef4444" if p < 0 else "#22c55e" for p in summary["net_profit"]]
+    fig = go.Figure(go.Bar(
+        y=summary["name"],
+        x=summary["net_profit"],
+        orientation="h",
+        marker_color=colors,
+        text=[f"${p:,.0f}" for p in summary["net_profit"]],
+        textposition="outside",
+    ))
+    fig.update_layout(
+        title="Net Profit by Instrument",
+        xaxis_title="USD",
+        showlegend=False,
+        height=500,
+    )
+    return fig
+
+
 def gain_loss_bar(df: pd.DataFrame):
     df = df.sort_values("total_gain")
     colors = ["#ef4444" if g < 0 else "#22c55e" for g in df["total_gain"]]

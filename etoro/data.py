@@ -52,6 +52,41 @@ def get_summary(date: str = None) -> dict:
     return df.iloc[0].to_dict()
 
 
+def get_trades() -> "pd.DataFrame":
+    """
+    Fetch closed trades with instrument names and Australian FY.
+    Australian FY runs July 1 - June 30. FY2025 = Jul 2024 - Jun 2025.
+    """
+    sql = """
+        SELECT
+            t.trade_id,
+            i.name,
+            i.symbol,
+            t.is_buy,
+            t.open_date,
+            t.close_date,
+            t.investment,
+            t.net_profit,
+            t.fees,
+            t.leverage,
+            CASE
+                WHEN MONTH(DATE(t.close_date)) >= 7
+                THEN YEAR(DATE(t.close_date)) + 1
+                ELSE YEAR(DATE(t.close_date))
+            END AS financial_year
+        FROM etoro_db.trades t
+        LEFT JOIN etoro_db.instruments i ON t.instrument_id = i.instrument_id
+        WHERE t.close_date IS NOT NULL AND t.close_date != ''
+        ORDER BY t.close_date DESC
+    """
+    return wr.athena.read_sql_query(
+        sql,
+        database="etoro_db",
+        s3_output="s3://etoro-pipeline-john/athena-results/",
+        boto3_session=_session(),
+    )
+
+
 def get_available_dates() -> list:
     df = wr.athena.read_sql_query(
         "SELECT DISTINCT date FROM etoro_db.positions ORDER BY date DESC",
