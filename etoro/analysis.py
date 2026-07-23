@@ -2,9 +2,17 @@ import os
 import groq
 import pandas as pd
 
+try:
+    import streamlit as st
+    def _secret(key):
+        return st.secrets.get(key, os.getenv(key))
+except Exception:
+    def _secret(key):
+        return os.getenv(key)
+
 
 def analyse_portfolio(df: pd.DataFrame, summary: dict) -> str:
-    client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = groq.Groq(api_key=_secret("GROQ_API_KEY"))
 
     portfolio_text = df[["name", "total_invested", "total_gain", "gain_pct"]].to_string(index=False)
 
@@ -34,8 +42,40 @@ Keep it concise, direct, and practical. No fluff."""
     return response.choices[0].message.content
 
 
+def rebalancing_tips(df: pd.DataFrame, summary: dict) -> list[str]:
+    """Returns exactly 3 short rebalancing bullet points for the next 3 months."""
+    client = groq.Groq(api_key=_secret("GROQ_API_KEY"))
+    portfolio_text = df[["name", "total_invested", "total_gain", "gain_pct"]].to_string(index=False)
+
+    prompt = f"""You are a portfolio analyst. Here is my eToro portfolio:
+
+Total Invested: ${summary['total_invested']:,.2f}
+Unrealised Gain: ${summary['total_gain']:,.2f}
+Overall Return: {summary['gain_pct']:.2f}%
+
+Positions:
+{portfolio_text}
+
+Give me exactly 3 concise rebalancing actions for the next 3 months.
+Return ONLY a JSON array of 3 strings, each one sentence. Example:
+["Trim X as it is overweight at Y%.", "Add to Z which is underperforming.", "Exit W due to poor fundamentals."]
+No extra text, just the JSON array."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=300,
+    )
+    import json
+    try:
+        content = response.choices[0].message.content.strip()
+        return json.loads(content)
+    except Exception:
+        return [response.choices[0].message.content.strip()]
+
+
 def chat(messages: list, df: pd.DataFrame, summary: dict) -> str:
-    client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = groq.Groq(api_key=_secret("GROQ_API_KEY"))
 
     portfolio_text = df[["name", "total_invested", "total_gain", "gain_pct"]].to_string(index=False)
 

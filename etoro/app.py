@@ -2,9 +2,9 @@ import streamlit as st
 from dotenv import load_dotenv
 load_dotenv()
 
-from data import get_portfolio, get_summary, get_available_dates, get_trades
-from charts import treemap, waterfall, gain_pct_horizontal, bubble, gain_loss_bar, trades_by_fy, buys_vs_sells_bar, profit_by_instrument
-from analysis import analyse_portfolio, chat
+from data import get_portfolio, get_summary, get_available_dates, get_trades, get_portfolio_history, get_sector_breakdown
+from charts import treemap, waterfall, gain_pct_horizontal, bubble, gain_loss_bar, trades_by_fy, buys_vs_sells_bar, profit_by_instrument, portfolio_vs_sp500, sector_breakdown
+from analysis import analyse_portfolio, chat, rebalancing_tips
 
 st.set_page_config(page_title="eToro Dashboard", layout="wide")
 st.title("📈 eToro Portfolio Dashboard")
@@ -20,11 +20,33 @@ with tab1:
         df = get_portfolio(selected_date)
         summary = get_summary(selected_date)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Invested", f"${summary['total_invested']:,.2f}")
-    col2.metric("Unrealised Gain", f"${summary['total_gain']:,.2f}")
-    col3.metric("Overall Return", f"{summary['gain_pct']:.2f}%",
+    total_value = summary['total_invested'] + summary['total_gain']
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Portfolio Value", f"${total_value:,.2f}")
+    col2.metric("Total Invested", f"${summary['total_invested']:,.2f}")
+    col3.metric("Unrealised Gain", f"${summary['total_gain']:,.2f}")
+    col4.metric("Overall Return", f"{summary['gain_pct']:.2f}%",
                 delta=f"{summary['gain_pct']:.2f}%")
+
+    st.divider()
+
+    with st.spinner("Generating rebalancing tips..."):
+        tips = rebalancing_tips(df, summary)
+    st.subheader("📋 3-Month Rebalancing Recommendations")
+    for tip in tips:
+        st.markdown(f"- {tip}")
+
+    st.divider()
+
+    with st.spinner("Loading performance history..."):
+        history_df = get_portfolio_history()
+    if len(history_df) > 1:
+        st.plotly_chart(portfolio_vs_sp500(history_df), use_container_width=True)
+        st.divider()
+
+    with st.spinner("Loading sector data..."):
+        sector_df = get_sector_breakdown(selected_date)
+    st.plotly_chart(sector_breakdown(sector_df), use_container_width=True)
 
     st.divider()
 
@@ -123,11 +145,13 @@ with tab2:
         st.divider()
 
         st.subheader(f"Trade History — {selected_fy}")
+        display_df = fy_df[["close_date", "name", "is_buy", "investment", "net_profit", "fees"]].copy()
+        display_df["is_buy"] = display_df["is_buy"].map({True: "Buy", False: "Sell"})
         st.dataframe(
-            fy_df[["close_date", "name", "is_buy", "investment", "net_profit", "fees"]].rename(columns={
+            display_df.rename(columns={
                 "close_date": "Close Date",
                 "name": "Instrument",
-                "is_buy": "Buy?",
+                "is_buy": "Type",
                 "investment": "Investment (USD)",
                 "net_profit": "Net Profit (USD)",
                 "fees": "Fees (USD)",

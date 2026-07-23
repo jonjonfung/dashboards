@@ -1,6 +1,7 @@
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+import yfinance as yf
 
 
 def treemap(df: pd.DataFrame):
@@ -135,6 +136,81 @@ def profit_by_instrument(df: pd.DataFrame):
         xaxis_title="USD",
         showlegend=False,
         height=500,
+    )
+    return fig
+
+
+def sector_breakdown(df: pd.DataFrame):
+    """Donut + bar showing invested amount and % by sector."""
+    by_sector = df.groupby("sector")["total_invested"].sum().reset_index()
+    by_sector = by_sector.sort_values("total_invested", ascending=False)
+    total = by_sector["total_invested"].sum()
+    by_sector["pct"] = (by_sector["total_invested"] / total * 100).round(1)
+
+    colors = [
+        "#6366f1", "#f97316", "#22c55e", "#ef4444", "#06b6d4",
+        "#a855f7", "#eab308", "#ec4899", "#14b8a6", "#f43f5e",
+    ]
+
+    fig = go.Figure()
+    fig.add_trace(go.Pie(
+        labels=by_sector["sector"],
+        values=by_sector["total_invested"],
+        hole=0.5,
+        marker_colors=colors[:len(by_sector)],
+        texttemplate="<b>%{label}</b><br>%{percent}",
+        hovertemplate="<b>%{label}</b><br>Invested: $%{value:,.2f}<br>Share: %{percent}<extra></extra>",
+    ))
+    fig.update_layout(
+        title="Portfolio by Sector",
+        legend={"orientation": "v", "x": 1.05},
+        annotations=[{"text": f"${total:,.0f}", "x": 0.5, "y": 0.5,
+                       "font_size": 16, "showarrow": False}],
+    )
+    return fig
+
+
+def portfolio_vs_sp500(history_df: pd.DataFrame):
+    """Line chart comparing portfolio performance vs S&P 500, normalised to 100."""
+    history_df = history_df.copy()
+    history_df["date"] = pd.to_datetime(history_df["date"])
+    history_df = history_df.sort_values("date")
+
+    start = history_df["date"].min()
+    end = history_df["date"].max()
+
+    sp500 = yf.download("^GSPC", start=start, end=end + pd.Timedelta(days=1), progress=False)
+    sp500 = sp500[["Close"]].reset_index()
+    sp500.columns = ["date", "sp500"]
+    sp500["date"] = pd.to_datetime(sp500["date"]).dt.tz_localize(None)
+
+    # Normalise both to 100 at start
+    base_portfolio = history_df["portfolio_value"].iloc[0]
+    base_sp500 = sp500["sp500"].iloc[0]
+    history_df["portfolio_idx"] = history_df["portfolio_value"] / base_portfolio * 100
+    sp500["sp500_idx"] = sp500["sp500"] / base_sp500 * 100
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=history_df["date"],
+        y=history_df["portfolio_idx"],
+        name="My Portfolio",
+        line={"color": "#6366f1", "width": 2},
+        mode="lines+markers",
+        marker={"size": 6},
+    ))
+    fig.add_trace(go.Scatter(
+        x=sp500["date"],
+        y=sp500["sp500_idx"],
+        name="S&P 500",
+        line={"color": "#f97316", "width": 2, "dash": "dash"},
+    ))
+    fig.update_layout(
+        title="Portfolio vs S&P 500 (indexed to 100 at first snapshot)",
+        yaxis_title="Index (100 = start)",
+        xaxis_title="Date",
+        legend={"orientation": "h", "y": -0.15},
+        hovermode="x unified",
     )
     return fig
 
